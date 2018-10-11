@@ -37,6 +37,7 @@ class OSSWebpackPlugin {
     compiler.plugin('done', async (stats) => {
       if (!this.options.region || !this.options.accessKeyId) {
           console.log(chalk.red.bold(`[error]：请配置有效的OSS信息`))
+        return 0
       }
       try {
         const localFileArray = this.getLocalFiles()

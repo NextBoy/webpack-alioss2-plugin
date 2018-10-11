@@ -1,6 +1,6 @@
 {
   "name": "webpack-alioss2-plugin",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "开发过程中自动上传图片到CDN，本地启动服务器可访问本地文件",
   "main": "libs/index.js",
   "scripts": {

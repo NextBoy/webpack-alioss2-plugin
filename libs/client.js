@@ -12,6 +12,10 @@ const chalk = require('chalk')
 // listBuckets()
 
 module.exports = function (config) {
+  if (!config.region || !config.accessKeyId) {
+    console.log(chalk.red.bold(`[error]：请配置有效的OSS信息`))
+    return 0
+  }
   // 连接阿里云OSS
   let client = new OSS(config)
   const bucket = config.bucket
