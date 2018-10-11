@@ -10,7 +10,7 @@
 **为了方便大家，这里顺便提供一个基于mpvue的项目模板，已经加入了该配置，
 并且已经加入了小程序分包功能，你只需要去webpack.base.conf.js文件中配置你的OSS参数就行**
 
-[mpvue项目模板地址](http://baidu.com)
+[mpvue项目模板地址](https://github.com/NextBoy/oss-mpvue-quickstart)
 
 ## Install
 ```bash
