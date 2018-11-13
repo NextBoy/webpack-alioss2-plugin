@@ -4,9 +4,22 @@ function createServer(target) {
   const path = require('path')
   const os = require('os')
   const chalk = require('chalk')
-
+  function getIPAdress(){
+        var interfaces = os.networkInterfaces();
+        for(var devName in interfaces){
+            var iface = interfaces[devName];
+            for(var i=0;i<iface.length;i++){
+                var alias = iface[i];
+                if(alias.family === 'IPv4' && alias.address !== '127.0.0.1' && !alias.internal){
+                    return alias.address;
+                }
+            }
+        }
+        console.log('没有获取到ip，可能导致手机无法预览')
+        return 'localhost'
+    }
   const app = express()
-  const ip = Object.values(os.networkInterfaces())[0][1].address
+  const ip = getIPAdress()
   const route = path.basename(target)
   app.use(`/${route}`, express.static(target))
 

@@ -11,6 +11,34 @@ const createServer = require('./server')
 function normalize(pathStr) {
   return pathStr.split(path.sep).join('/')
 }
+function deepMerge(obj1, obj2) {
+  var key;
+  for(key in obj2) {
+    // 如果target(也就是obj1[key])存在，且是对象的话再去调用deepMerge，否则就是obj1[key]里面没这个对象，需要与obj2[key]合并
+    obj1[key] = obj1[key] && obj1[key].toString() === "[object Object]" ?
+      deepMerge(obj1[key], obj2[key]) : obj1[key] = obj2[key];
+  }
+  return obj1;
+}
+
+function createFatherKey(keysMap, length) {
+  if (!length){
+    return ''
+  }
+  return '.' + keysMap.slice(0, length).join('.')
+}
+
+function analyzeMap(relativePath, keyRelativePath, URI) {
+  let obj = {}
+  const keysMap = relativePath.replace(/\s/, '').replace(/(-|@)/g, '_').replace(/\..+$/, '').split('/')
+  for(let i = 1; i <= keysMap.length; i++) {
+    const fatherKey = createFatherKey(keysMap, i)
+    const value = i === keysMap.length ? `"${(URI + keyRelativePath)}"` : '{}'
+    const string = `obj${fatherKey}=${value}`
+    eval(string)
+  }
+  return obj
+}
 
 class OSSWebpackPlugin {
 
@@ -33,12 +61,19 @@ class OSSWebpackPlugin {
         this.uri = await createServer(this.options.targetDir)
       }
     })
-
-    compiler.plugin('done', async (stats) => {
-      if (!this.options.region || !this.options.accessKeyId) {
-          console.log(chalk.red.bold(`[error]：请配置有效的OSS信息`))
-        return 0
+    compiler.plugin('compile', async() => {
+      if (this.createServer) {
+        if (this.options.mapLocalRecords) {
+          const next = await this.uriReady()
+          await this.getLocalFiles(false)
+        }
       }
+    })
+    compiler.plugin('run', async () => {
+        if (!this.options.oss.region || !this.options.oss.accessKeyId) {
+            console.log(chalk.red.bold(`[error]：请配置有效的OSS信息`))
+            return 0
+        }
       try {
         const localFileArray = this.getLocalFiles()
         // const localFileKeys = localFileArray.map(item => item.keyRelativePath)
@@ -91,15 +126,26 @@ class OSSWebpackPlugin {
       // this.failCallback(err);
     });
   }
-  getLocalFiles() {
+  getLocalFiles(useMd5 = true) {
     const targetDir = this.options.targetDir
     var patterns = `${targetDir}/**/*.**`
-    return glob.sync(patterns, {matchBase: true})
-      .map(filePath => {
-        // mac和window都统一格式的相对路径
-        // 返回一个唯一的相对路径和本地路径组成的对象
-        return createRelativePath(targetDir, filePath)
-      })
+    const items = glob.sync(patterns, {matchBase: true}).filter(filePath => !/\.json/.test(filePath))
+    let record = {}
+    const result = items.map(filePath => {
+      // mac和window都统一格式的相对路径
+      // 返回一个唯一的相对路径和本地路径组成的对象
+      const info = createRelativePath(targetDir, filePath, useMd5)
+      let imgUri = this.getVisitOssURI(false)
+      let recordImgPath = info.keyRelativePath
+      if (this.options.mapLocalRecords) {
+        recordImgPath = info.relativePath
+        imgUri = this.getVisitOssURI(true)
+      }
+      record = deepMerge(record, analyzeMap(info.relativePath, recordImgPath, imgUri))
+      return info
+    })
+    fs.writeFileSync(path.join(this.options.targetDir, './record.json'), JSON.stringify(record, null, 4))
+    return result
   }
 
   async getOSSFiles() {
@@ -141,9 +187,20 @@ class OSSWebpackPlugin {
     } else if (mock && !this.createServer) {
       console.log('你并没有运行mock服务器，请尝试开启配置重新运行')
       process.exit(1)
-      return ''
+      return 'undefined'
     }
     return `https://${this.options.oss.bucket}.${this.options.oss.region}.aliyuncs.com/`
+  }
+
+  uriReady () {
+    return new Promise((resolve) => {
+      let timer = setInterval(() =>{
+        if (this.uri) {
+          clearInterval(timer)
+          resolve(true)
+        }
+      }, 100)
+    })
   }
 }
 // 导出插件
